@@ -11,6 +11,8 @@ const { program } = require('commander');
 const express = require('express');
 const multer = require('multer');
 const { v4: uuidv4 } = require('uuid');
+const swaggerJsdoc = require('swagger-jsdoc');
+const swaggerUi = require('swagger-ui-express');
 
 // ------------------------------------------------------------------
 // Commander CLI
@@ -19,7 +21,22 @@ const { v4: uuidv4 } = require('uuid');
 program
   .requiredOption('-h, --host <host>', 'server host')
   .requiredOption('-p, --port <port>', 'server port', parseInt)
-  .requiredOption('-c, --cache <cacheDir>', 'cache directory');
+  .requiredOption('-c, --cache <cacheDir>', 'cache directory')
+  .configureOutput({
+    outputError: (str, write) => {
+      switch(true)
+      {
+        case (str.includes('--host')): 
+          write('please specify server host\n')
+          break
+        case (str.includes('--port')):
+          write('please specify server port\n')
+          break
+        default:
+          write(str);
+      }
+    }
+  });
 
 program.parse();
 const options = program.opts();
@@ -251,6 +268,37 @@ app.get('/search', allowMethods(['GET']), (req, res) => {
     description
   });
 });
+
+// ------------------------------------------------------------------
+// Swagger
+// ------------------------------------------------------------------
+
+const swaggerDefinition = {
+  openapi: "3.0.0",
+  info: {
+    title: "Inventory Service API",
+    version: "1.0.0",
+    description: "API documentation for Inventory Lab #6"
+  },
+  servers: [
+    {
+      url: `http://${HOST}:${PORT}`,
+      description: "Local server"
+    }
+  ]
+};
+
+const swaggerOptions = {
+  swaggerDefinition,
+  apis: ["./swagger/*.yaml"]   // <-- підключення YAML-файлів
+};
+
+const swaggerSpec = swaggerJsdoc(swaggerOptions);
+
+console.log('Swagger spec paths:', swaggerSpec.paths);
+
+app.use("/docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
+
 
 // Fallback for unknown routes
 app.use((req, res) => res.status(404).send('Not found'));

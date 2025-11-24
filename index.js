@@ -1,9 +1,3 @@
-#!/usr/bin/env node
-
-/**
- * Inventory service (Lab #6)
- */
-
 const fs = require('fs');
 const path = require('path');
 const http = require('http');
@@ -14,26 +8,20 @@ const { v4: uuidv4 } = require('uuid');
 const swaggerJsdoc = require('swagger-jsdoc');
 const swaggerUi = require('swagger-ui-express');
 
-// ------------------------------------------------------------------
-// Commander CLI
-// ------------------------------------------------------------------
-
-program
+program //commander cli params
   .requiredOption('-h, --host <host>', 'server host')
   .requiredOption('-p, --port <port>', 'server port', parseInt)
   .requiredOption('-c, --cache <cacheDir>', 'cache directory')
   .configureOutput({
     outputError: (str, write) => {
-      switch(true)
-      {
+      switch(true) {
         case (str.includes('--host')): 
           write('please specify server host\n')
           break
         case (str.includes('--port')):
           write('please specify server port\n')
           break
-        default:
-          write(str);
+        default: write(str);
       }
     }
   });
@@ -45,8 +33,7 @@ const HOST = options.host;
 const PORT = options.port;
 const CACHE_DIR = path.resolve(options.cache);
 
-// Create cache directory if needed
-if (!fs.existsSync(CACHE_DIR)) {
+if (!fs.existsSync(CACHE_DIR)) { // cache dir
   fs.mkdirSync(CACHE_DIR, { recursive: true });
 }
 
@@ -57,8 +44,7 @@ if (!fs.existsSync(PHOTOS_DIR)) {
 
 const DB_FILE = path.join(CACHE_DIR, 'inventory.json');
 
-// Init DB
-let db = {};
+let db = {}; // init db
 if (fs.existsSync(DB_FILE)) {
   try {
     db = JSON.parse(fs.readFileSync(DB_FILE, 'utf8') || '{}');
@@ -79,17 +65,12 @@ function findItem(id) {
   return db.items.find(i => i.id === id);
 }
 
-// ------------------------------------------------------------------
-// Express setup
-// ------------------------------------------------------------------
-
-const app = express();
+const app = express(); //express.js
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Multer storage config
-const storage = multer.diskStorage({
+const storage = multer.diskStorage({ //multer storage
   destination: (req, file, cb) => cb(null, PHOTOS_DIR),
   filename: (req, file, cb) => {
     const ext = path.extname(file.originalname) || '.jpg';
@@ -99,7 +80,6 @@ const storage = multer.diskStorage({
 });
 const upload = multer({ storage });
 
-// Forms (static)
 app.get('/RegisterForm.html', (req, res) =>
   res.sendFile(path.join(process.cwd(), 'RegisterForm.html'))
 );
@@ -108,8 +88,7 @@ app.get('/SearchForm.html', (req, res) =>
   res.sendFile(path.join(process.cwd(), 'SearchForm.html'))
 );
 
-// Helper: restrict methods
-function allowMethods(methods) {
+function allowMethods(methods) { //methods restriction
   return (req, res, next) => {
     if (!methods.includes(req.method)) {
       res.set('Allow', methods.join(', '));
@@ -119,11 +98,7 @@ function allowMethods(methods) {
   };
 }
 
-// ------------------------------------------------------------------
-// API
-// ------------------------------------------------------------------
-
-app.post('/register', allowMethods(['POST']), upload.single('photo'), (req, res) => {
+app.post('/register', allowMethods(['POST']), upload.single('photo'), (req, res) => { //url queries
   const name = req.body.inventory_name;
   const desc = req.body.description || '';
 
@@ -192,9 +167,8 @@ app.put('/inventory/:id/photo', allowMethods(['PUT']), upload.single('photo'), (
 
   if (!req.file) return res.status(400).send('No file uploaded');
 
-  // Delete old file
   if (item.storedFileName) {
-    const p = path.join(PHOTOS_DIR, item.storedFileName);
+    const p = path.join(PHOTOS_DIR, item.storedFileName); //delete file
     if (fs.existsSync(p)) fs.unlinkSync(p);
   }
 
@@ -213,9 +187,8 @@ app.delete('/inventory/:id', allowMethods(['DELETE']), (req, res) => {
 
   const item = db.items[idx];
 
-  // Remove photo
   if (item.storedFileName) {
-    const file = path.join(PHOTOS_DIR, item.storedFileName);
+    const file = path.join(PHOTOS_DIR, item.storedFileName); //rm photo
     if (fs.existsSync(file)) fs.unlinkSync(file);
   }
 
@@ -225,8 +198,7 @@ app.delete('/inventory/:id', allowMethods(['DELETE']), (req, res) => {
   res.status(200).json({ message: 'Deleted' });
 });
 
-// Search POST (form-urlencoded)
-app.post('/search', allowMethods(['POST']), (req, res) => {
+app.post('/search', allowMethods(['POST']), (req, res) => { //search post
   const id = req.body.id;
   const hp = req.body.has_photo;
 
@@ -247,8 +219,7 @@ app.post('/search', allowMethods(['POST']), (req, res) => {
   });
 });
 
-// Search GET (для SearchForm.html)
-app.get('/search', allowMethods(['GET']), (req, res) => {
+app.get('/search', allowMethods(['GET']), (req, res) => { //search get
   const id = req.query.id;
   const hp = req.query.includePhoto;
 
@@ -269,11 +240,7 @@ app.get('/search', allowMethods(['GET']), (req, res) => {
   });
 });
 
-// ------------------------------------------------------------------
-// Swagger
-// ------------------------------------------------------------------
-
-const swaggerDefinition = {
+const swaggerDefinition = { //swagger
   openapi: "3.0.0",
   info: {
     title: "Inventory Service API",
@@ -290,25 +257,17 @@ const swaggerDefinition = {
 
 const swaggerOptions = {
   swaggerDefinition,
-  apis: ["./swagger/*.yaml"]   // <-- підключення YAML-файлів
+  apis: ["./swagger/*.yaml"] 
 };
 
 const swaggerSpec = swaggerJsdoc(swaggerOptions);
-
-console.log('Swagger spec paths:', swaggerSpec.paths);
-
+// console.log('Swagger spec paths:', swaggerSpec.paths); //swagger debug
 app.use("/docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
-
-// Fallback for unknown routes
-app.use((req, res) => res.status(404).send('Not found'));
-
-// ------------------------------------------------------------------
-// Start server
-// ------------------------------------------------------------------
+app.use((req, res) => res.status(404).send('Not found')); //unk routes
 
 const server = http.createServer(app);
 server.listen(PORT, HOST, () => {
-  console.log(`Running on http://${HOST}:${PORT}`);
+  console.log(`Running on http://${HOST}:${PORT}`); //start server
   console.log(`Cache directory: ${CACHE_DIR}`);
 });
